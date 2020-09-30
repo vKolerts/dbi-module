@@ -1,6 +1,6 @@
 {
   "name": "switch-dbi",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "DBI backend server for nsp installing by usb",
   "main": "index.js",
   "scripts": {
@@ -13,6 +13,11 @@
     "usb"
   ],
   "author": "v.Kolerts",
+  "email": "str.mail.ru@bk.ru",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/vKolerts/dbi-module"
+  },
   "license": "ISC",
   "dependencies": {
     "usb": "1.6.3"

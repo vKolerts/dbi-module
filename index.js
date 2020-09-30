@@ -6,6 +6,11 @@ const VID = 0x057E, PID = 0x3000;
 const CMD_ID_EXIT = 0;
 const CMD_ID_LIST = 1;
 const CMD_ID_FILE_RANGE = 2;
+const CMD_METHODS = {
+  [CMD_ID_EXIT]: 'proccessCmdExit',
+  [CMD_ID_LIST]: 'proccessCmdList',
+  [CMD_ID_FILE_RANGE]: 'proccessCmdFileRange',
+}
 
 const CMD_TYPE_REQUEST = 0;
 const CMD_TYPE_RESPONSE = 1;
@@ -14,10 +19,14 @@ const CMD_TYPE_ACK = 2;
 const BUFFER_SEGMENT_DATA_SIZE = 0x100000;
 
 class DBI {
-  constructor(fileList) {
-    if (typeof fileList === 'string') fileList = [fileList];
+  constructor(fileList, eventListener) {
+    if (!fileList && !fileList.length) throw 'Empty nsp list';
+    if (eventListener && typeof eventListener !== 'function') throw 'Invalid eventListener type';
 
+    this.eventListener = eventListener;
+    this.connected = false;
     this.nspList = {};
+    if (typeof fileList === 'string') fileList = [fileList];
     for (const file of fileList) {
       // const stat = fs.statSync(file);
       const title = file.split('/').pop();
@@ -29,9 +38,19 @@ class DBI {
     }
   }
 
+  exit() {
+    this.stop = true;
+    if (this.dev) this.dev.close();
+    delete this.dev;
+  }
+
   async start() {
     if (!this.dev) {
       this.dev = await this.waitDevice();
+      if (this.stop) return;
+
+      this.connected = true;
+      this.event('connected', this.dev);
       const endpoints = this.dev.interfaces[0].endpoints;
       const [InEndpoint, OutEndpoint] = endpoints;
       this.InEndpoint = InEndpoint;
@@ -42,22 +61,20 @@ class DBI {
     const cmd = await this.cmdRead();
     // console.log(cmd);
 
-    const actions = {
-      [CMD_ID_EXIT]: 'proccessCmdExit',
-      [CMD_ID_LIST]: 'proccessCmdList',
-      [CMD_ID_FILE_RANGE]: 'proccessCmdFileRange',
-    }
+    const action = CMD_METHODS[cmd.id] || 'unknownCmd';
 
-    const action = actions[cmd.id] || 'unknownCmd';
-
+    this.event(action, cmd);
     await this[action](cmd);
 
 
     // console.log('NEXT STEP');
-    this.start();
+    return this.start();
   }
 
   async waitDevice() {
+    this.connected = false;
+    if (this.stop) return;
+
     try {
       // console.log('findDev');
       const dev = usb.findByIds(VID, PID);
@@ -66,6 +83,7 @@ class DBI {
       return dev;
     }
     catch (err) {
+      this.event('waitDevice', null);
       console.error(err);
       return new Promise((resolve, reject) => {
         setTimeout(() => {
@@ -76,18 +94,18 @@ class DBI {
   }
 
 
-  async unknownCmd() {
-    console.warning('CMD UNKNOWN');
+  unknownCmd() {
+    console.warn('CMD UNKNOWN');
   }
 
-  async proccessCmdExit() {
+  async proccessCmdExit({id}) {
     console.log('CMD_ID_EXIT');
-    await this.cmdWrite({id: CMD_ID_EXIT});
+    await this.cmdWrite({id});
     try {
       this.dev.close();
     }
     catch (err) {
-      console.warning(err);
+      console.warn(err);
     }
 
     this.dev = null;
@@ -103,6 +121,7 @@ class DBI {
     return this.bufferWrite(list);
   }
 
+
   async proccessCmdFileRange({id, data_size}) {
     console.log('CMD_ID_FILE_RANGE');
     await this.cmdWrite({
@@ -112,27 +131,28 @@ class DBI {
     });
 
     const buffer = await this.bufferRead(data_size);
-
     const range_size = buffer.readUInt32LE(0);
-    const range_offset = parseInt(buffer.readBigInt64LE(4)); // readBigInt64LE
+    const range_offset = parseInt(buffer.readBigInt64LE(4)); // readUInt32LE
     const nspNameLen = buffer.readUInt32LE(12);
     const nspName = buffer.slice(16).toString();
 
-    console.log({
+    const fileRange = {
       range_size,
       range_offset,
       // nspNameLen,
       nspName,
-    });
+    };
+    console.log(fileRange);
 
     const nsp = this.nspList[nspName];
     if (!nsp) {
-      console.error('Can`t find selected nsp');
+      fileRange.err = 'Can`t find selected nsp';
+      this.event('error', fileRange);
+      console.error(fileRange.err);
       return this.proccessCmdExit();
     }
 
     // console.log({nsp});
-
     await this.cmdWrite({
       type: CMD_TYPE_RESPONSE,
       id,
@@ -142,7 +162,8 @@ class DBI {
     const ans = await this.cmdRead();
     // console.log({ans});
 
-    const fd = fs.openSync(nsp.file);
+    this.event('readFileRange', fileRange);
+    const fd = fs.openSync(nsp.file, 'r');
     const end_off = range_size;
     let curr_off = 0x0,
       read_size = BUFFER_SEGMENT_DATA_SIZE,
@@ -223,6 +244,12 @@ class DBI {
         return resolve();
       })
     })
+  }
+
+  event(title, data) {
+    if (!this.eventListener) return;
+
+    this.eventListener(title, data);
   }
 }
 

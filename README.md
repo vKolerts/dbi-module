@@ -8,11 +8,30 @@ Node.JS port of https://github.com/lunixoid/dbibackend
 
 ### Use:
 ```js
-  const DBI = require('switch-dbi');
-  const dbi = new DBI([
-    'path/to/file1.nsp',
-    'path/to/file2.nsp'
-  ]);
+  const eventListenerExample = (eventTitle, data) => {
+    /*eventTitles = [
+      'connected',
+      'waitDevice',
+      'proccessCmdExit',
+      'proccessCmdList',
+      'proccessCmdFileRange',
+      'readFileRange',
+      'unknownCmd',
+      'error',
+    ]*/
+    console.log(eventTitle, data)
+  };
 
-  dbi.start();
+  const DBI = require('switch-dbi');
+  const dbi = new DBI(
+    [
+      'path/to/file1.nsp',
+      'path/to/file2.nsp'
+    ],
+    eventListenerExample // optional
+  );
+
+  dbi
+  .start() // async
+  .catch(console.error);
 ```
