@@ -99,7 +99,7 @@ class DBI {
   }
 
   async proccessCmdExit({id}) {
-    console.log('CMD_ID_EXIT');
+    // console.log('CMD_ID_EXIT');
     await this.cmdWrite({id});
     try {
       this.dev.close();
@@ -112,7 +112,7 @@ class DBI {
   }
 
   async proccessCmdList({id}) {
-    console.log('CMD_ID_LIST');
+    // console.log('CMD_ID_LIST');
     const list = Buffer.from(Object.keys(this.nspList).join('\n'));
 
     await this.cmdWrite({id, data_size: list.length});
@@ -123,7 +123,7 @@ class DBI {
 
 
   async proccessCmdFileRange({id, data_size}) {
-    console.log('CMD_ID_FILE_RANGE');
+    // console.log('CMD_ID_FILE_RANGE');
     await this.cmdWrite({
       type: CMD_TYPE_ACK,
       id,
@@ -142,7 +142,7 @@ class DBI {
       // nspNameLen,
       nspName,
     };
-    console.log(fileRange);
+    // console.log(fileRange);
 
     const nsp = this.nspList[nspName];
     if (!nsp) {
@@ -164,29 +164,26 @@ class DBI {
 
     this.event('readFileRange', fileRange);
     const fd = fs.openSync(nsp.file, 'r');
-    const end_off = range_size;
+
+    let chank = Buffer.allocUnsafe(range_size);
+    const readed = fs.readSync(fd, chank, 0, range_size, range_offset);
+    // console.log({chank, readed});
+    await this.bufferWrite(chank);
+
+    /*let chank = Buffer.allocUnsafe(range_size);
     let curr_off = 0x0,
-      read_size = BUFFER_SEGMENT_DATA_SIZE,
-      position = range_offset;
+      read_size = BUFFER_SEGMENT_DATA_SIZE;
+    while (curr_off < range_size) {
+      if (curr_off + read_size >= range_size)
+        read_size = range_size - curr_off;
 
-    while (curr_off < end_off) {
-      if (curr_off + read_size >= end_off)
-        read_size = end_off - curr_off;
 
-      /*console.log({
-        curr_off,
-        end_off,
-        read_size,
-        position,
-      });*/
-
-      let buffer = Buffer.allocUnsafe(read_size);
-      const readed = fs.readSync(fd, buffer, 0, read_size, position);
-      // console.log({buffer, readed});
-      position = null;
-      await this.bufferWrite(buffer);
+      console.log({ curr_off, read_size, range_size});
+      const readed = fs.readSync(fd, chank, curr_off, read_size, range_offset + curr_off);
       curr_off += read_size;
     }
+
+    await this.bufferWrite(chank);*/
   }
 
 
