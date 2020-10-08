@@ -1,4 +1,5 @@
 const fs = require('fs');
+const path = require('path');
 const usb = require('usb');
 
 const VID = 0x057E, PID = 0x3000;
@@ -29,7 +30,7 @@ class DBI {
     if (typeof fileList === 'string') fileList = [fileList];
     for (const file of fileList) {
       // const stat = fs.statSync(file);
-      const title = file.split('/').pop();
+      const title = file.split(path.sep).pop();
 
       this.nspList[title] = {
         file,
