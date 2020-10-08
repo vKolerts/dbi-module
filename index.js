@@ -51,7 +51,9 @@ class DBI {
 
       this.connected = true;
       this.event('connected', this.dev);
-      const endpoints = this.dev.interfaces[0].endpoints;
+      const iface = this.dev.interfaces[0];
+      iface.claim();
+      const endpoints = iface.endpoints;
       const [InEndpoint, OutEndpoint] = endpoints;
       this.InEndpoint = InEndpoint;
       this.OutEndpoint = OutEndpoint;
