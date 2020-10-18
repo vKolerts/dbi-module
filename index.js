@@ -5,19 +5,22 @@ const usb = require('usb');
 const VID = 0x057E, PID = 0x3000;
 
 const CMD_ID_EXIT = 0;
-const CMD_ID_LIST = 1;
+const CMD_ID_LIST_OLD = 1; // DBI below 168
 const CMD_ID_FILE_RANGE = 2;
+const CMD_ID_LIST = 3; // DBI 168+
+
 const CMD_METHODS = {
   [CMD_ID_EXIT]: 'proccessCmdExit',
+  [CMD_ID_LIST_OLD]: 'proccessCmdList',
   [CMD_ID_LIST]: 'proccessCmdList',
   [CMD_ID_FILE_RANGE]: 'proccessCmdFileRange',
-}
+};
 
 const CMD_TYPE_REQUEST = 0;
 const CMD_TYPE_RESPONSE = 1;
 const CMD_TYPE_ACK = 2;
 
-const BUFFER_SEGMENT_DATA_SIZE = 0x100000;
+// const BUFFER_SEGMENT_DATA_SIZE = 0x100000;
 
 class DBI {
   constructor(fileList, eventListener) {
@@ -43,6 +46,7 @@ class DBI {
     this.stop = true;
     if (this.dev) this.dev.close();
     delete this.dev;
+    this.event('disconnected', null);
   }
 
   async start() {
